@@ -44,11 +44,13 @@ library("foreign") ;
 
 
 ###############################################################################################################
-#                         
+#                         Read the database and select fields
 ###############################################################################################################
 
 
 Int_HRU_Mesh<-read.dbf('../SwatPIHM/WE38IntersectionMeshHRU_Calc.dbf', as.is=T ) ;
+
+
 
 
 head(Int_HRU_Mesh) 
@@ -58,33 +60,37 @@ str(Int_HRU_Mesh)
 names(Int_HRU_Mesh)
 
 
+############### check if all the trinagles number sequence exist
 
-# OneTirangle<-Int_HRU_Mesh[Int_HRU_Mesh$FID_NTPIHM==714,] ;
+
+Triangles.numbers.missing<-which(!c(1:882) %in% as.numeric(levels(as.factor(Int_HRU_Mesh$FID_NTPIHM))))   ;
+
+
+
+# ############# code to use one triangel to test results
+
+# Triangle.no<-799
+# OneTirangle<-Int_HRU_Mesh[Int_HRU_Mesh$FID_NTPIHM==Triangle.no,] ;
 # 
-# OneTirangle[,c( "FID_WE38Ca" ,"Ele_ID" , "Shape_Area" ,"F_AREA" , "FID_FullHR" , "HRUGIS", "LU_NUM" ,"LU_CODE" )] ;
-# 
-# head(OneTirangle);
+# aggregate(formula=Shape_Area~LU_CODE, data=OneTirangle, FUN=sum, simplify=T)
 
 Int_HRU_Mesh$LU_CODE<-as.factor(Int_HRU_Mesh$LU_CODE);
 
-Mesh.Triangle.Area<-aggregate(formula=Shape_Area~LU_CODE+FID_NTPIHM, data=Int_HRU_Mesh, FUN=sum, simplify=T) ;
+LU.Area.Mesh<-aggregate(formula=Shape_Area~LU_CODE+FID_NTPIHM, data=Int_HRU_Mesh, FUN=sum, simplify=T) ;
 
-head(Mesh.Triangle.Area)
-str(Mesh.Triangle.Area)
+head(LU.Area.Mesh)
+str(LU.Area.Mesh)
 
-Area.Dominant.LU<-aggregate(formula=Shape_Area~FID_NTPIHM,data=Mesh.Triangle.Area, FUN = max, simplify=T);
+LU.Area.Mesh.max<-aggregate(formula=Shape_Area~FID_NTPIHM,data=LU.Area.Mesh, FUN = max, simplify=T);
 
-str(Area.Dominant.LU)
-head(Area.Dominant.LU)
-
-
-str(Mesh.Triangle.Area[Mesh.Triangle.Area$Shape_Area %in% Area.Dominant.LU$Shape_Area,])
-
-str(AAAA)
-
-head(AAAA, 30) 
-
-AAAA$Area.Fraction<-AAAA$Shape_Area.x/AAAA$Shape_Area.y  ;
+str(LU.Area.Mesh.max)
+head(LU.Area.Mesh.max)
 
 
-aggregate(formula=Area.Fraction~LU_NUM%in%FID_NTPIHM , data=AAAA , FUN=which.max() , simplify=T)
+LU.Area.Mesh.Dominant<-LU.Area.Mesh[LU.Area.Mesh$Shape_Area %in% LU.Area.Mesh.max$Shape_Area,]
+
+
+#  LU.Area.Mesh.Dominant[LU.Area.Mesh.Dominant$FID_NTPIHM==Triangle.no,]
+
+
+
