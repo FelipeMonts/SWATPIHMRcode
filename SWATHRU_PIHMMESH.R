@@ -44,11 +44,12 @@ library("foreign") ;
 
 
 ###############################################################################################################
-#                         Read the database and select fields
+#                         Read the database of PIHM Mesh and Swat HRU intersection polygons and 
+#                        select the appropriate fields
 ###############################################################################################################
 
 
-Int_HRU_Mesh<-read.dbf('../SwatPIHM/WE38IntersectionMeshHRU_Calc.dbf', as.is=T ) ;
+Int_HRU_Mesh<-read.dbf('../SwatPIHM/WE38MeshIntersectionHRUManhantango.dbf', as.is=T ) ;
 
 
 
@@ -63,34 +64,77 @@ names(Int_HRU_Mesh)
 ############### check if all the trinagles number sequence exist
 
 
-Triangles.numbers.missing<-which(!c(1:882) %in% as.numeric(levels(as.factor(Int_HRU_Mesh$FID_NTPIHM))))   ;
+Triangles.numbers.missing<-which(!c(1:883) %in% as.numeric(levels(as.factor(Int_HRU_Mesh$Ele_ID))))   ;
 
+Triangles.numbers.missing
 
+# ############# code to use one triangle to test results
 
-# ############# code to use one triangel to test results
-
-# Triangle.no<-799
-# OneTirangle<-Int_HRU_Mesh[Int_HRU_Mesh$FID_NTPIHM==Triangle.no,] ;
+# Triangle.no<-3
+# OneTirangle<-Int_HRU_Mesh[Int_HRU_Mesh$Ele_ID==Triangle.no,] ;
 # 
-# aggregate(formula=Shape_Area~LU_CODE, data=OneTirangle, FUN=sum, simplify=T)
+# aggregate(formula=TriaHruAre~LU_CODE, data=OneTirangle, FUN=sum, simplify=T)
+
+
+########### Make LU_CODE as a factor to differentiate between land Use types
 
 Int_HRU_Mesh$LU_CODE<-as.factor(Int_HRU_Mesh$LU_CODE);
 
-LU.Area.Mesh<-aggregate(formula=Shape_Area~LU_CODE+FID_NTPIHM, data=Int_HRU_Mesh, FUN=sum, simplify=T) ;
+
+############## find the total area of each LU_CODE inside each trinagle of the PIHM mesh by suming the areas of each different LU_CODE 
+############## the areas of each different LU_CODE level inside each trinagle of the PIHM mesh identified in the field Ele_ID
+
+LU.Area.Mesh<-aggregate(formula=TriaHruAre~LU_CODE+Ele_ID, data=Int_HRU_Mesh, FUN=sum, simplify=T) ;
 
 head(LU.Area.Mesh)
 str(LU.Area.Mesh)
 
-LU.Area.Mesh.max<-aggregate(formula=Shape_Area~FID_NTPIHM,data=LU.Area.Mesh, FUN = max, simplify=T);
+
+############# Find the LU_CODE level with the maximum total area within each PIHM MESH trinagle
+LU.Area.Mesh.max<-aggregate(formula=TriaHruAre~Ele_ID,data=LU.Area.Mesh, FUN = max, simplify=T);
 
 str(LU.Area.Mesh.max)
 head(LU.Area.Mesh.max)
 
 
-LU.Area.Mesh.Dominant<-LU.Area.Mesh[LU.Area.Mesh$Shape_Area %in% LU.Area.Mesh.max$Shape_Area,]
+
+########### Find the location (row) in the records where the LU_CODE with the maximum total area is and extract all the 
+########### variables on that row
+
+LU.Area.Mesh.Dominant<-LU.Area.Mesh[LU.Area.Mesh$TriaHruAre %in% LU.Area.Mesh.max$TriaHruAre,]
 
 
-#  LU.Area.Mesh.Dominant[LU.Area.Mesh.Dominant$FID_NTPIHM==Triangle.no,]
+#  LU.Area.Mesh.Dominant[LU.Area.Mesh.Dominant$Ele_ID==Triangle.no,]
+
+
+############# Extract the area of each triangle 
+
+Mesh.Triangle.Area<-read.dbf('../SwatPIHM/NTPIHM_Mesh20170228.dbf', as.is=T ) ;
+
+head(Mesh.Triangle.Area)
+str(Mesh.Triangle.Area)
+
+
+########### Merge the LU.Area.Mesh.Dominant and the Mesh.Triangle.Area data frames
+
+
+Mang.Triangle<-merge(Mesh.Triangle.Area,LU.Area.Mesh.Dominant, by="Ele_ID")  ;
+
+head(Mang.Triangle)
+
+str(Mang.Triangle)
+
+Mang.Triangle$Fraction<-Mang.Triangle$TriaHruAre/Mang.Triangle$TriangArea  ;
+
+names(Mang.Triangle)[1]<-c("TriangleNo")
+
+
+
+######### write out the file with the dominant land use (management) for each tringle
+
+
+write.table(Mang.Triangle[,c( "TriangleNo" ,"LU_CODE", "Fraction" )],"../SwatPIHM/WE38_Triangle_LU.txt", sep="\t", quote=F, row.names = F);
+
 
 
 
