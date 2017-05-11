@@ -40,7 +40,7 @@ setwd("C:/Felipe/PIHM-CYCLES/PIHM/PIHM_Felipe/CNS/WE-38/WE38_Files_PIHM_Cycles20
 ###############################################################################################################
 
 library("foreign") ;
-
+library("dplyr") ;
 
 
 
@@ -86,40 +86,26 @@ Int_HRU_Mesh$LU_CODE<-as.factor(Int_HRU_Mesh$LU_CODE);
 ############## the areas of each different LU_CODE level inside each trinagle of the PIHM mesh identified in the field Ele_ID
 
 
-# LU.Area.Mesh.count<-xtabs(formula=~Ele_ID+LU_CODE, data=Int_HRU_Mesh, sparse=F) ; # using Xtabs produce a table or a sparse matrix
-
 LU.Area.Mesh.count<-aggregate(formula=TriaHruAre~Ele_ID+LU_CODE, data=Int_HRU_Mesh, FUN=length, simplify=T) ;
 head(LU.Area.Mesh.count[order(LU.Area.Mesh.count$Ele_ID),],50);
 
 LU.Area.Mesh.sum<-aggregate(formula=TriaHruAre~Ele_ID+LU_CODE, data=Int_HRU_Mesh, FUN=sum, simplify=T) ;
 
-head(LU.Area.Mesh.sum)
+head(LU.Area.Mesh.sum[order(LU.Area.Mesh.sum$Ele_ID),],50) ;
 str(LU.Area.Mesh.sum)
 
 
 ############# Find the LU_CODE level with the maximum total area within each PIHM MESH triangle
 
-LU.Area.Mesh.max<-aggregate(formula=TriaHruAre~Ele_ID,data=LU.Area.Mesh.sum, FUN =, simplify=T);
+#####split the area sumation into groups determined by each triangle, then find the maximum area sumation within each 
+# group (trinagle)
 
-str(LU.Area.Mesh.max)
-head(LU.Area.Mesh.max)
+temp.1<-lapply(split(LU.Area.Mesh.sum,LU.Area.Mesh.sum$Ele_ID),function(x) x[which.max(x$TriaHruAre),]) ;
+head(temp.1)
 
-
-
-########### Find the location (row) in the records where the LU_CODE with the maximum total area is and extract all the 
-########### variables on that row
-
-###LU.Area.Mesh.Dominant<-LU.Area.Mesh.sum[LU.Area.Mesh.sum$TriaHruAre %in% LU.Area.Mesh.max$TriaHruAre,]; # there is paroblem here,becuase
-# more than one max total area are compatible or exact to other LU areas and therefore are selected as well.
-
-# split(LU.Area.Mesh.sum,LU.Area.Mesh.sum$Ele_ID)
-# xx<-lapply(split(LU.Area.Mesh.sum,LU.Area.Mesh.sum$Ele_ID),function(x) x[which.max(x$TriaHruAre),])
-# head(xx)
-# 
-# data.frame(t(sapply(xx,c)),stringsAsFactors = F)
-# xxx<-data.frame(Reduce(rbind, xx))
-# do.call(rbind.data.frame, xx)
-
+#take the information of maximum area sumation for each trinagle and grouped together in a dataframe
+LU.Area.Mesh.Dominant<-do.call(rbind.data.frame, temp.1)  ;
+head(LU.Area.Mesh.Dominant,20);
 
 
 
@@ -148,13 +134,36 @@ Mang.Triangle$Fraction<-Mang.Triangle$TriaHruAre/Mang.Triangle$TriangArea  ;
 
 names(Mang.Triangle)[1]<-c("TriangleNo")
 
-
+head(Mang.Triangle,20)
 
 ######### write out the file with the dominant land use (management) for each tringle
 
 
-write.table(Mang.Triangle[,c( "TriangleNo" ,"LU_CODE", "Fraction" )],"../SwatPIHM/WE38_Triangle_LU.txt", sep="\t", quote=F, row.names = F);
+write.table(Mang.Triangle[,c( "TriangleNo" ,"LU_CODE", "Fraction" )],"../SwatPIHM/WE38_Triangle_LU_2.txt", sep="\t", quote=F, row.names = F);
 
 
 
+###### compare the  outputs of the previous version of the algorithm with the current version to see if there are some other errors
 
+
+WE38_Triangle_LU<-read.table("../SwatPIHM/WE38_Triangle_LU.txt", header=T, as.is=T);
+head(WE38_Triangle_LU);
+str(WE38_Triangle_LU);
+
+
+WE38_Triangle_LU_2<-read.table("../SwatPIHM/WE38_Triangle_LU_2.txt" , header=T, as.is=T);
+head(WE38_Triangle_LU_2);
+str(WE38_Triangle_LU_2);
+
+Errors<-WE38_Triangle_LU[!WE38_Triangle_LU$Fraction %in% WE38_Triangle_LU_2$Fraction,] ;
+
+Errors_2<-anti_join(WE38_Triangle_LU,WE38_Triangle_LU_2, by=NULL);
+
+
+##### Merge the land use with the trinagle mesh for display in QGIS
+
+Mesh.Triangle.Lu<-merge(Mesh.Triangle.Area,WE38_Triangle_LU_2, by.x="Ele_ID",by.y="TriangleNo");
+head( Mesh.Triangle.Lu)
+
+
+write.dbf(Mesh.Triangle.Lu,"../SwatPIHM/NTPIHM_Mesh20170228Copy.dbf");
