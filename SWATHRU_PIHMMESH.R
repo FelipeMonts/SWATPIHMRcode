@@ -35,11 +35,12 @@ setwd("C:/Felipe/PIHM-CYCLES/PIHM/PIHM_Felipe/CNS/WE-38/WE38_Files_PIHM_Cycles20
 
 
 ###############################################################################################################
-#                         Call packages neded to process the data 
+#                         Call packages needed to process the data 
 #                             
 ###############################################################################################################
 
 library("foreign") ;
+
 
 
 
@@ -81,17 +82,24 @@ Triangles.numbers.missing
 Int_HRU_Mesh$LU_CODE<-as.factor(Int_HRU_Mesh$LU_CODE);
 
 
-############## find the total area of each LU_CODE inside each trinagle of the PIHM mesh by suming the areas of each different LU_CODE 
+############## find the total area of each LU_CODE inside each trinagle of the PIHM mesh by summing  
 ############## the areas of each different LU_CODE level inside each trinagle of the PIHM mesh identified in the field Ele_ID
 
-LU.Area.Mesh<-aggregate(formula=TriaHruAre~LU_CODE+Ele_ID, data=Int_HRU_Mesh, FUN=sum, simplify=T) ;
 
-head(LU.Area.Mesh)
-str(LU.Area.Mesh)
+# LU.Area.Mesh.count<-xtabs(formula=~Ele_ID+LU_CODE, data=Int_HRU_Mesh, sparse=F) ; # using Xtabs produce a table or a sparse matrix
+
+LU.Area.Mesh.count<-aggregate(formula=TriaHruAre~Ele_ID+LU_CODE, data=Int_HRU_Mesh, FUN=length, simplify=T) ;
+head(LU.Area.Mesh.count[order(LU.Area.Mesh.count$Ele_ID),],50);
+
+LU.Area.Mesh.sum<-aggregate(formula=TriaHruAre~Ele_ID+LU_CODE, data=Int_HRU_Mesh, FUN=sum, simplify=T) ;
+
+head(LU.Area.Mesh.sum)
+str(LU.Area.Mesh.sum)
 
 
-############# Find the LU_CODE level with the maximum total area within each PIHM MESH trinagle
-LU.Area.Mesh.max<-aggregate(formula=TriaHruAre~Ele_ID,data=LU.Area.Mesh, FUN = max, simplify=T);
+############# Find the LU_CODE level with the maximum total area within each PIHM MESH triangle
+
+LU.Area.Mesh.max<-aggregate(formula=TriaHruAre~Ele_ID,data=LU.Area.Mesh.sum, FUN =, simplify=T);
 
 str(LU.Area.Mesh.max)
 head(LU.Area.Mesh.max)
@@ -101,7 +109,19 @@ head(LU.Area.Mesh.max)
 ########### Find the location (row) in the records where the LU_CODE with the maximum total area is and extract all the 
 ########### variables on that row
 
-LU.Area.Mesh.Dominant<-LU.Area.Mesh[LU.Area.Mesh$TriaHruAre %in% LU.Area.Mesh.max$TriaHruAre,]
+###LU.Area.Mesh.Dominant<-LU.Area.Mesh.sum[LU.Area.Mesh.sum$TriaHruAre %in% LU.Area.Mesh.max$TriaHruAre,]; # there is paroblem here,becuase
+# more than one max total area are compatible or exact to other LU areas and therefore are selected as well.
+
+# split(LU.Area.Mesh.sum,LU.Area.Mesh.sum$Ele_ID)
+# xx<-lapply(split(LU.Area.Mesh.sum,LU.Area.Mesh.sum$Ele_ID),function(x) x[which.max(x$TriaHruAre),])
+# head(xx)
+# 
+# data.frame(t(sapply(xx,c)),stringsAsFactors = F)
+# xxx<-data.frame(Reduce(rbind, xx))
+# do.call(rbind.data.frame, xx)
+
+
+
 
 
 #  LU.Area.Mesh.Dominant[LU.Area.Mesh.Dominant$Ele_ID==Triangle.no,]
